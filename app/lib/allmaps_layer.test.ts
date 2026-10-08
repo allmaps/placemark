@@ -1,3 +1,8 @@
+import {
+  DEFAULT_ALLMAPS_COLORIZE_COLOR,
+  DEFAULT_ALLMAPS_REMOVE_COLOR_COLOR,
+  DEFAULT_ALLMAPS_REMOVE_COLOR_THRESHOLD,
+} from "app/lib/allmaps_options";
 import { layerConfigLayerId } from "app/lib/layer_config_adapters";
 import type { ILayerConfig, LayerConfigMap } from "types";
 import { afterEach, describe, expect, it, vi } from "vitest";
@@ -43,6 +48,14 @@ vi.mock("react-hot-toast", () => ({
   toast: toastMock,
 }));
 
+const defaultAllmapsLayerOptions = {
+  colorize: false,
+  colorizeColor: DEFAULT_ALLMAPS_COLORIZE_COLOR,
+  removeColor: false,
+  removeColorColor: DEFAULT_ALLMAPS_REMOVE_COLOR_COLOR,
+  removeColorThreshold: DEFAULT_ALLMAPS_REMOVE_COLOR_THRESHOLD,
+};
+
 function allmapsLayer(
   overrides: Partial<Extract<ILayerConfig, { type: "ALLMAPS" }>> = {},
 ): Extract<ILayerConfig, { type: "ALLMAPS" }> {
@@ -52,6 +65,7 @@ function allmapsLayer(
     labelVisibility: true,
     name: "Allmaps",
     opacity: 0.5,
+    ...defaultAllmapsLayerOptions,
     saturation: 1,
     tms: false,
     type: "ALLMAPS",
@@ -187,6 +201,7 @@ describe("syncAllmapsLayers", () => {
     expect(allmapsMock.WarpedMapLayer).toHaveBeenCalledWith({
       layerId: allmapsLayerId(layer.id),
       opacity: 0.5,
+      ...defaultAllmapsLayerOptions,
       saturation: 1,
       visible: false,
     });
@@ -196,6 +211,7 @@ describe("syncAllmapsLayers", () => {
     );
     expect(allmapsMock.createdLayers[0].setOpacity).toHaveBeenCalledWith(0.5);
     expect(allmapsMock.createdLayers[0].setLayerOptions).toHaveBeenCalledWith({
+      ...defaultAllmapsLayerOptions,
       saturation: 1,
       visible: false,
     });
@@ -220,8 +236,13 @@ describe("syncAllmapsLayers", () => {
     );
   });
 
-  it("syncs Allmaps layer saturation", async () => {
-    const layer = allmapsLayer({ saturation: 0 });
+  it("syncs Allmaps layer effects", async () => {
+    const layer = allmapsLayer({
+      removeColor: true,
+      removeColorColor: "#fafafa",
+      removeColorThreshold: 0.6,
+      saturation: 0,
+    });
 
     await syncAllmapsLayers({
       map: makeMap(["features-fill"]) as any,
@@ -232,10 +253,55 @@ describe("syncAllmapsLayers", () => {
     expect(allmapsMock.WarpedMapLayer).toHaveBeenCalledWith({
       layerId: allmapsLayerId(layer.id),
       opacity: 0.5,
+      colorize: false,
+      colorizeColor: DEFAULT_ALLMAPS_COLORIZE_COLOR,
+      removeColor: true,
+      removeColorColor: "#fafafa",
+      removeColorThreshold: 0.6,
       saturation: 0,
       visible: true,
     });
     expect(allmapsMock.createdLayers[0].setLayerOptions).toHaveBeenCalledWith({
+      colorize: false,
+      colorizeColor: DEFAULT_ALLMAPS_COLORIZE_COLOR,
+      removeColor: true,
+      removeColorColor: "#fafafa",
+      removeColorThreshold: 0.6,
+      saturation: 0,
+      visible: true,
+    });
+  });
+
+  it("desaturates Allmaps layers while colorizing", async () => {
+    const layer = allmapsLayer({
+      colorize: true,
+      colorizeColor: "#0088ff",
+      saturation: 1,
+    });
+
+    await syncAllmapsLayers({
+      map: makeMap(["features-fill"]) as any,
+      layerCache: new Map(),
+      layerConfigs: layerConfigMap([layer]),
+    });
+
+    expect(allmapsMock.WarpedMapLayer).toHaveBeenCalledWith({
+      layerId: allmapsLayerId(layer.id),
+      opacity: 0.5,
+      colorize: true,
+      colorizeColor: "#0088ff",
+      removeColor: false,
+      removeColorColor: DEFAULT_ALLMAPS_REMOVE_COLOR_COLOR,
+      removeColorThreshold: DEFAULT_ALLMAPS_REMOVE_COLOR_THRESHOLD,
+      saturation: 0,
+      visible: true,
+    });
+    expect(allmapsMock.createdLayers[0].setLayerOptions).toHaveBeenCalledWith({
+      colorize: true,
+      colorizeColor: "#0088ff",
+      removeColor: false,
+      removeColorColor: DEFAULT_ALLMAPS_REMOVE_COLOR_COLOR,
+      removeColorThreshold: DEFAULT_ALLMAPS_REMOVE_COLOR_THRESHOLD,
       saturation: 0,
       visible: true,
     });

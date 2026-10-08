@@ -83,10 +83,15 @@ test("zLayerConfig Allmaps", () => {
     `
     {
       "at": "a0",
+      "colorize": false,
+      "colorizeColor": "#ff56ba",
       "id": Any<String>,
       "labelVisibility": true,
       "name": "Allmaps",
       "opacity": 1,
+      "removeColor": false,
+      "removeColorColor": "#222222",
+      "removeColorThreshold": 0.3,
       "saturation": 1,
       "tms": false,
       "type": "ALLMAPS",

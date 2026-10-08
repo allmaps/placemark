@@ -1,3 +1,8 @@
+import {
+  DEFAULT_ALLMAPS_COLORIZE_COLOR,
+  DEFAULT_ALLMAPS_REMOVE_COLOR_COLOR,
+  DEFAULT_ALLMAPS_REMOVE_COLOR_THRESHOLD,
+} from "app/lib/allmaps_options";
 import { layerConfigLayerId } from "app/lib/layer_config_adapters";
 import { FIRST_EDITING_LAYER_NAME } from "app/lib/load_and_augment_style";
 import type * as maplibregl from "maplibre-gl";
@@ -6,26 +11,33 @@ import type { ILayerConfig, LayerConfigMap } from "types";
 
 export type AllmapsLayerConfig = Extract<ILayerConfig, { type: "ALLMAPS" }>;
 
+type AllmapsLayerOptions = {
+  colorize?: boolean;
+  colorizeColor?: string;
+  removeColor?: boolean;
+  removeColorColor?: string;
+  removeColorThreshold?: number;
+  saturation?: number;
+  visible?: boolean;
+};
+
 type WarpedMapLayerInstance = maplibregl.CustomLayerInterface & {
   addGeoreferenceAnnotationByUrl: (url: string) => Promise<unknown> | unknown;
   getBounds: () => maplibregl.LngLatBoundsLike | undefined;
   getCenterZoomBearing: (
     options?: maplibregl.CameraForBoundsOptions,
   ) => maplibregl.CenterZoomBearing;
-  setLayerOptions: (options: {
-    saturation?: number;
-    visible?: boolean;
-  }) => void;
+  setLayerOptions: (options: AllmapsLayerOptions) => void;
   setOpacity: (opacity: number) => void;
 };
 
 type AllmapsMapLibreModule = {
-  WarpedMapLayer: new (options: {
-    layerId: string;
-    opacity: number;
-    saturation: number;
-    visible: boolean;
-  }) => WarpedMapLayerInstance;
+  WarpedMapLayer: new (
+    options: {
+      layerId: string;
+      opacity: number;
+    } & AllmapsLayerOptions,
+  ) => WarpedMapLayerInstance;
 };
 
 type CachedAllmapsLayer = {
@@ -71,6 +83,27 @@ export function getCachedAllmapsLayer(
 
 function getSaturation(layerConfig: AllmapsLayerConfig) {
   return layerConfig.saturation ?? 1;
+}
+
+function getRenderedSaturation(layerConfig: AllmapsLayerConfig) {
+  return layerConfig.colorize ? 0 : getSaturation(layerConfig);
+}
+
+function getAllmapsLayerOptions(
+  layerConfig: AllmapsLayerConfig,
+): AllmapsLayerOptions {
+  return {
+    colorize: layerConfig.colorize ?? false,
+    colorizeColor: layerConfig.colorizeColor ?? DEFAULT_ALLMAPS_COLORIZE_COLOR,
+    removeColor: layerConfig.removeColor ?? false,
+    removeColorColor:
+      layerConfig.removeColorColor ?? DEFAULT_ALLMAPS_REMOVE_COLOR_COLOR,
+    removeColorThreshold:
+      layerConfig.removeColorThreshold ??
+      DEFAULT_ALLMAPS_REMOVE_COLOR_THRESHOLD,
+    saturation: getRenderedSaturation(layerConfig),
+    visible: layerConfig.visibility,
+  };
 }
 
 function getRenderedLayerId(layer: ILayerConfig) {
@@ -172,8 +205,7 @@ async function getCachedLayer({
   const layer = new WarpedMapLayer({
     layerId,
     opacity: layerConfig.opacity,
-    saturation: getSaturation(layerConfig),
-    visible: layerConfig.visibility,
+    ...getAllmapsLayerOptions(layerConfig),
   });
   const nextCachedLayer = {
     layer,
@@ -245,10 +277,7 @@ function syncLayerOptions({
 }) {
   try {
     cachedLayer.layer.setOpacity(layerConfig.opacity);
-    cachedLayer.layer.setLayerOptions({
-      saturation: getSaturation(layerConfig),
-      visible: layerConfig.visibility,
-    });
+    cachedLayer.layer.setLayerOptions(getAllmapsLayerOptions(layerConfig));
   } catch (_e) {
     // During Vite HMR, MapLibre can retain the visible custom layer while the
     // module cache recreates this helper around a fresh unattached instance.

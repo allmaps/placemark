@@ -1,8 +1,6 @@
 import {
-  BlendingModeIcon,
   EyeNoneIcon,
   EyeOpenIcon,
-  OpacityIcon,
   QuestionMarkCircledIcon,
   SymbolIcon,
   TextIcon,
@@ -717,12 +715,4 @@ export const VisibilityToggleIcon = ({
 
 export const LabelToggleIcon = ({ visibility }: { visibility: boolean }) => {
   return visibility ? <TextIcon /> : <TextNoneIcon />;
-};
-
-export const SaturationToggleIcon = ({
-  saturation,
-}: {
-  saturation: number;
-}) => {
-  return saturation > 0 ? <OpacityIcon /> : <BlendingModeIcon />;
 };

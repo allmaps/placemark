@@ -1,13 +1,27 @@
+import { Crosshair1Icon } from "@radix-ui/react-icons";
 import clsx from "clsx";
 import * as d3 from "d3-color";
 import type { FieldProps } from "formik";
 import { Popover as P } from "radix-ui";
+import { useEffect, useState } from "react";
 import {
   HexColorInput,
   type HexColorPicker,
   RgbaStringColorPicker,
 } from "react-colorful";
 import * as E from "./elements";
+
+type EyeDropperConstructor = new () => {
+  open: () => Promise<{ sRGBHex: string }>;
+};
+
+function getEyeDropper() {
+  if (typeof window === "undefined") {
+    return;
+  }
+
+  return (window as Window & { EyeDropper?: EyeDropperConstructor }).EyeDropper;
+}
 
 export function ColorPopoverField({
   field,
@@ -53,14 +67,22 @@ function color2rgb(orig: string): string {
   return c.formatRgb();
 }
 
-function ColorPopover({
+export function ColorPopover({
   color,
   onChange,
   onBlur,
   _size = "sm",
+  eyedropper = false,
 }: React.ComponentProps<typeof HexColorPicker> & {
+  eyedropper?: boolean;
   _size?: E.B3Size;
 }) {
+  const [eyeDropperSupported, setEyeDropperSupported] = useState(false);
+
+  useEffect(() => {
+    setEyeDropperSupported(getEyeDropper() !== undefined);
+  }, []);
+
   return (
     <P.Root>
       <P.Trigger
@@ -87,13 +109,38 @@ function ColorPopover({
               onBlur={onBlur}
             />
           </div>
-          <HexColorInput
-            className={E.inputClass({ _size })}
-            prefixed
-            alpha
-            color={color}
-            onChange={onChange}
-          />
+          <div className="flex items-center gap-x-2">
+            <HexColorInput
+              className={E.inputClass({ _size })}
+              prefixed
+              alpha
+              color={color}
+              onChange={onChange}
+            />
+            {eyedropper && eyeDropperSupported ? (
+              <button
+                type="button"
+                title="Pick color from screen"
+                className={clsx(
+                  E.styledButton({ size: _size, variant: "default" }),
+                  "shrink-0",
+                )}
+                onClick={async () => {
+                  const EyeDropper = getEyeDropper();
+                  if (!EyeDropper) return;
+
+                  try {
+                    const result = await new EyeDropper().open();
+                    onChange?.(result.sRGBHex);
+                  } catch (_e) {
+                    // The user can cancel the native picker.
+                  }
+                }}
+              >
+                <Crosshair1Icon />
+              </button>
+            ) : null}
+          </div>
           <P.Close asChild>
             <E.Button>Done</E.Button>
           </P.Close>

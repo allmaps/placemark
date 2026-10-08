@@ -22,20 +22,29 @@ import { CSS } from "@dnd-kit/utilities";
 import {
   CaretLeftIcon,
   CaretRightIcon,
+  ColorWheelIcon,
   DragHandleDots2Icon,
   ExclamationTriangleIcon,
   MagnifyingGlassIcon,
+  MixerHorizontalIcon,
   Pencil1Icon,
   PlusIcon,
   RotateCounterClockwiseIcon,
+  TransparencyGridIcon,
   TrashIcon,
 } from "@radix-ui/react-icons";
 import { useQuery } from "@tanstack/react-query";
+import { ColorPopover } from "app/components/color_popover";
 import * as E from "app/components/elements";
 import { TextWell } from "app/components/elements";
 import { MapContext } from "app/context/map_context";
 import { FORM_ERROR, Form } from "app/core/components/Form";
 import { LabeledTextField } from "app/core/components/LabeledTextField";
+import {
+  DEFAULT_ALLMAPS_COLORIZE_COLOR,
+  DEFAULT_ALLMAPS_REMOVE_COLOR_COLOR,
+  DEFAULT_ALLMAPS_REMOVE_COLOR_THRESHOLD,
+} from "app/lib/allmaps_options";
 import LAYERS from "app/lib/default_layers";
 import { newFeatureId } from "app/lib/id";
 import { usePersistence } from "app/lib/persistence/context";
@@ -346,6 +355,11 @@ function AllmapsLayer({
     layer ||
     ({
       ...SHARED_INTIAL_VALUES,
+      colorize: false,
+      colorizeColor: DEFAULT_ALLMAPS_COLORIZE_COLOR,
+      removeColor: false,
+      removeColorColor: DEFAULT_ALLMAPS_REMOVE_COLOR_COLOR,
+      removeColorThreshold: DEFAULT_ALLMAPS_REMOVE_COLOR_THRESHOLD,
       saturation: 1,
       type: "ALLMAPS",
     } as const);
@@ -700,6 +714,188 @@ function AddLayer() {
   );
 }
 
+type AllmapsLayerConfig = Extract<ILayerConfig, { type: "ALLMAPS" }>;
+
+function AllmapsLayerEffectsIcon({
+  layerConfig,
+}: {
+  layerConfig: AllmapsLayerConfig;
+}) {
+  const removeColor = layerConfig.removeColor ?? false;
+  const colorize = layerConfig.colorize ?? false;
+  const Icon = removeColor
+    ? TransparencyGridIcon
+    : colorize
+      ? ColorWheelIcon
+      : MixerHorizontalIcon;
+
+  return (
+    <span className="relative inline-flex h-4 w-4 items-center justify-center">
+      {removeColor ? (
+        <span
+          className="absolute inset-0 rounded-[2px] opacity-50"
+          style={{
+            backgroundImage:
+              "linear-gradient(45deg, #9ca3af 25%, transparent 25%), linear-gradient(-45deg, #9ca3af 25%, transparent 25%), linear-gradient(45deg, transparent 75%, #9ca3af 75%), linear-gradient(-45deg, transparent 75%, #9ca3af 75%)",
+            backgroundPosition: "0 0, 0 2px, 2px -2px, -2px 0",
+            backgroundSize: "4px 4px",
+          }}
+        />
+      ) : null}
+      <Icon className="relative" />
+      {colorize ? (
+        <span
+          className="absolute -bottom-0.5 -right-0.5 h-2 w-2 rounded-full border border-white dark:border-gray-900"
+          style={{
+            backgroundColor:
+              layerConfig.colorizeColor ?? DEFAULT_ALLMAPS_COLORIZE_COLOR,
+          }}
+        />
+      ) : null}
+    </span>
+  );
+}
+
+function AllmapsLayerEffectsPopover({
+  layerConfig,
+}: {
+  layerConfig: AllmapsLayerConfig;
+}) {
+  const rep = usePersistence();
+  const transact = rep.useTransact();
+  const removeColor = layerConfig.removeColor ?? false;
+  const colorize = layerConfig.colorize ?? false;
+  const hasEffects = removeColor || colorize;
+
+  const updateLayerEffects = async (patch: Partial<AllmapsLayerConfig>) => {
+    await transact({
+      note: "Change Allmaps layer effects",
+      putLayerConfigs: [
+        {
+          ...layerConfig,
+          ...patch,
+        },
+      ],
+    });
+  };
+
+  return (
+    <P.Root>
+      <P.Trigger asChild>
+        <button
+          type="button"
+          title="Layer effects"
+          aria-label="Layer effects"
+          className={
+            hasEffects
+              ? "opacity-80 hover:opacity-100 select-none"
+              : "opacity-30 hover:opacity-100 select-none"
+          }
+        >
+          <AllmapsLayerEffectsIcon layerConfig={layerConfig} />
+        </button>
+      </P.Trigger>
+      <E.PopoverContent2 size="sm">
+        <div className="space-y-3">
+          <E.PopoverTitleAndClose title="Layer effects" />
+          <div className="space-y-2">
+            <label className="flex items-center justify-between gap-x-3 text-sm text-gray-700 dark:text-gray-300">
+              <span>Remove color</span>
+              <input
+                type="checkbox"
+                className={E.styledCheckbox({ variant: "default" })}
+                checked={removeColor}
+                onChange={(e) => {
+                  void updateLayerEffects({
+                    removeColor: e.target.checked,
+                    removeColorColor:
+                      layerConfig.removeColorColor ??
+                      DEFAULT_ALLMAPS_REMOVE_COLOR_COLOR,
+                    removeColorThreshold:
+                      layerConfig.removeColorThreshold ??
+                      DEFAULT_ALLMAPS_REMOVE_COLOR_THRESHOLD,
+                  });
+                }}
+              />
+            </label>
+            {removeColor ? (
+              <div className="grid grid-cols-[5rem_1fr] items-center gap-x-2 gap-y-2">
+                <E.StyledLabelSpan size="xs">Color</E.StyledLabelSpan>
+                <ColorPopover
+                  _size="xs"
+                  color={
+                    layerConfig.removeColorColor ??
+                    DEFAULT_ALLMAPS_REMOVE_COLOR_COLOR
+                  }
+                  eyedropper
+                  onChange={(removeColorColor) => {
+                    void updateLayerEffects({ removeColorColor });
+                  }}
+                />
+                <E.StyledLabelSpan size="xs">Threshold</E.StyledLabelSpan>
+                <input
+                  type="number"
+                  min="0"
+                  max="1"
+                  step="0.05"
+                  className={E.inputClass({ _size: "xs" })}
+                  value={
+                    layerConfig.removeColorThreshold ??
+                    DEFAULT_ALLMAPS_REMOVE_COLOR_THRESHOLD
+                  }
+                  onChange={(e) => {
+                    const removeColorThreshold = clamp(
+                      e.target.valueAsNumber,
+                      0,
+                      1,
+                    );
+                    if (Number.isNaN(removeColorThreshold)) return;
+                    void updateLayerEffects({ removeColorThreshold });
+                  }}
+                />
+              </div>
+            ) : null}
+          </div>
+          <E.DivSeparator />
+          <div className="space-y-2">
+            <label className="flex items-center justify-between gap-x-3 text-sm text-gray-700 dark:text-gray-300">
+              <span>Colorize</span>
+              <input
+                type="checkbox"
+                className={E.styledCheckbox({ variant: "default" })}
+                checked={colorize}
+                onChange={(e) => {
+                  void updateLayerEffects({
+                    colorize: e.target.checked,
+                    colorizeColor:
+                      layerConfig.colorizeColor ??
+                      DEFAULT_ALLMAPS_COLORIZE_COLOR,
+                  });
+                }}
+              />
+            </label>
+            {colorize ? (
+              <div className="grid grid-cols-[5rem_1fr] items-center gap-x-2">
+                <E.StyledLabelSpan size="xs">Color</E.StyledLabelSpan>
+                <ColorPopover
+                  _size="xs"
+                  color={
+                    layerConfig.colorizeColor ?? DEFAULT_ALLMAPS_COLORIZE_COLOR
+                  }
+                  eyedropper
+                  onChange={(colorizeColor) => {
+                    void updateLayerEffects({ colorizeColor });
+                  }}
+                />
+              </div>
+            ) : null}
+          </div>
+        </div>
+      </E.PopoverContent2>
+    </P.Root>
+  );
+}
+
 function SortableLayerConfig({ layerConfig }: { layerConfig: ILayerConfig }) {
   const { attributes, listeners, setNodeRef, transform, transition } =
     useSortable({ id: layerConfig.id });
@@ -863,52 +1059,29 @@ function SortableLayerConfig({ layerConfig }: { layerConfig: ILayerConfig }) {
           >
             <E.VisibilityToggleIcon visibility={layerConfig.visibility} />
           </div>
-          <div
-            role="checkbox"
-            title={
-              layerConfig.type === "ALLMAPS"
-                ? "Toggle saturation"
-                : "Toggle label visibility"
-            }
-            onClick={async () => {
-              if (layerConfig.type === "ALLMAPS") {
+          {layerConfig.type === "ALLMAPS" ? (
+            <AllmapsLayerEffectsPopover layerConfig={layerConfig} />
+          ) : (
+            <div
+              role="checkbox"
+              title="Toggle label visibility"
+              onClick={async () => {
                 await transact({
-                  note: "Toggle layer saturation",
+                  note: "Toggle label visibility",
                   putLayerConfigs: [
                     {
                       ...layerConfig,
-                      saturation: (layerConfig.saturation ?? 1) > 0 ? 0 : 1,
+                      labelVisibility: !layerConfig.labelVisibility,
                     },
                   ],
                 });
-                return;
-              }
-
-              await transact({
-                note: "Toggle label visibility",
-                putLayerConfigs: [
-                  {
-                    ...layerConfig,
-                    labelVisibility: !layerConfig.labelVisibility,
-                  },
-                ],
-              });
-            }}
-            aria-checked={
-              layerConfig.type === "ALLMAPS"
-                ? (layerConfig.saturation ?? 1) > 0
-                : layerConfig.labelVisibility
-            }
-            className={"opacity-30 hover:opacity-100 select-none"}
-          >
-            {layerConfig.type === "ALLMAPS" ? (
-              <E.SaturationToggleIcon
-                saturation={layerConfig.saturation ?? 1}
-              />
-            ) : (
+              }}
+              aria-checked={layerConfig.labelVisibility}
+              className={"opacity-30 hover:opacity-100 select-none"}
+            >
               <E.LabelToggleIcon visibility={layerConfig.labelVisibility} />
-            )}
-          </div>
+            </div>
+          )}
 
           <button
             type="button"

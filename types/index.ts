@@ -1,4 +1,9 @@
 import type { CBColors } from "app/lib/colorbrewer";
+import {
+  DEFAULT_ALLMAPS_COLORIZE_COLOR,
+  DEFAULT_ALLMAPS_REMOVE_COLOR_COLOR,
+  DEFAULT_ALLMAPS_REMOVE_COLOR_THRESHOLD,
+} from "app/lib/allmaps_options";
 import { purple900 } from "app/lib/constants";
 import { getFoldersInTree } from "app/lib/folder";
 import type { FlatbushLike } from "app/lib/generate_flatbush_instance";
@@ -80,6 +85,14 @@ export const zLayerConfig = z.discriminatedUnion("type", [
   }),
   zLayerConfigCommon.extend({
     type: z.literal("ALLMAPS"),
+    colorize: z.boolean().default(false),
+    colorizeColor: z.string().default(DEFAULT_ALLMAPS_COLORIZE_COLOR),
+    removeColor: z.boolean().default(false),
+    removeColorColor: z.string().default(DEFAULT_ALLMAPS_REMOVE_COLOR_COLOR),
+    removeColorThreshold: z
+      .number()
+      .transform((num) => clamp(num, 0, 1))
+      .default(DEFAULT_ALLMAPS_REMOVE_COLOR_THRESHOLD),
     saturation: z
       .number()
       .transform((num) => clamp(num, 0, 1))
