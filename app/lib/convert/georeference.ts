@@ -4,6 +4,7 @@ import readAsText from "app/lib/read_as_text";
 import { EitherAsync } from "purify-ts/EitherAsync";
 import type { Feature } from "types";
 import type { FileType, ImportOptions } from ".";
+import { getGeoreferenceNames } from "./georeference_names";
 import type { GeoreferenceResult } from "./utils";
 
 class CGeoreference implements FileType {
@@ -33,14 +34,17 @@ class CGeoreference implements FileType {
       if (!maps.length) {
         throw new ConvertError("This annotation contains no maps.");
       }
+      const names = getGeoreferenceNames(input);
       const result: GeoreferenceResult = {
         type: "georeference",
+        name: names.name,
         maps: [],
         notes: [],
       };
+      const layerMaps: typeof maps = [];
       const boundsFeatures: Feature[] = [];
       for (const [index, map] of maps.entries()) {
-        const name = `Map ${index + 1}`;
+        const name = names.maps[index];
         const properties = { mapId: map.id ?? null, imageId: map.resource.id };
         const gcps: Feature[] = map.gcps.map((gcp, i) => ({
           type: "Feature",
@@ -94,13 +98,13 @@ class CGeoreference implements FileType {
         result.maps.push({
           name,
           geojson: { type: "FeatureCollection", features },
-          ...(layer && canWarp ? { annotation: generateAnnotation(map) } : {}),
         });
+        if (layer && canWarp) layerMaps.push(map);
       }
+      if (layerMaps.length) result.annotation = generateAnnotation(layerMaps);
       if (
-        !result.maps.some(
-          (map) => map.annotation || map.geojson.features.length,
-        )
+        !result.annotation &&
+        !result.maps.some((map) => map.geojson.features.length)
       ) {
         throw new ConvertError(
           result.notes.join(" ") ||

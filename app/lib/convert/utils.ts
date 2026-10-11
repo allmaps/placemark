@@ -84,10 +84,11 @@ export interface RootResult {
 
 export interface GeoreferenceResult {
   type: "georeference";
+  name?: string;
+  annotation?: Extract<ILayerConfig, { type: "ALLMAPS" }>["annotation"];
   maps: {
     name: string;
     geojson: FeatureCollection;
-    annotation?: Extract<ILayerConfig, { type: "ALLMAPS" }>["annotation"];
   }[];
   extent?: BBox;
   notes: string[];

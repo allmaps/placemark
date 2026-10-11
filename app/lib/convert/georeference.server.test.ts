@@ -38,7 +38,7 @@ describe("Georeference Annotation import", () => {
     expect(map.geojson.features).toHaveLength(
       (choices.points ? 3 : 0) + (choices.mask ? 1 : 0),
     );
-    expect(!!map.annotation).toBe(choices.layer);
+    expect(!!result.annotation).toBe(choices.layer);
     expect(getImportExtent(result).isJust()).toBe(true);
     expect(result.notes).toEqual([]);
     if (choices.points) {
@@ -51,7 +51,8 @@ describe("Georeference Annotation import", () => {
         },
       });
     }
-    if (choices.layer) expect(parseAnnotation(map.annotation)).toHaveLength(1);
+    if (choices.layer)
+      expect(parseAnnotation(result.annotation)).toHaveLength(1);
     if (choices.mask) {
       const geometry = map.geojson.features.at(-1)!.geometry;
       expect(geometry?.type).toBe("Polygon");
@@ -64,7 +65,7 @@ describe("Georeference Annotation import", () => {
     }
   });
 
-  it("imports an AnnotationPage through the binary pipeline and keeps maps separate", async () => {
+  it("imports an AnnotationPage as one layer snapshot with separate data", async () => {
     const first = georeferenceAnnotation();
     const second = georeferenceAnnotation();
     second.id = "https://example.com/annotations/map-2";
@@ -81,9 +82,10 @@ describe("Georeference Annotation import", () => {
     expect(result.maps[1].geojson.features[0].properties?.mapId).toBe(
       second.id,
     );
-    expect(
-      result.maps.map((map) => parseAnnotation(map.annotation)[0].id),
-    ).toEqual([first.id, second.id]);
+    expect(parseAnnotation(result.annotation).map((map) => map.id)).toEqual([
+      first.id,
+      second.id,
+    ]);
     expect(structuredClone(result)).toEqual(result);
   });
 
@@ -99,7 +101,7 @@ describe("Georeference Annotation import", () => {
     if (point.geometry?.type !== "Point") throw new Error("Expected a point");
     point.geometry.coordinates[0] = 99;
     (point.properties!.resourceCoords as number[])[0] = 99;
-    expect(parseAnnotation(map.annotation)[0].gcps[0]).toEqual({
+    expect(parseAnnotation(result.annotation)[0].gcps[0]).toEqual({
       geo: [4, 53],
       resource: [0, 0],
     });
@@ -115,7 +117,7 @@ describe("Georeference Annotation import", () => {
       )
     ).unsafeCoerce();
     expect(result.maps[0].geojson.features).toHaveLength(2);
-    expect(result.maps[0].annotation).toBeUndefined();
+    expect(result.annotation).toBeUndefined();
     expect(result.notes[0]).toContain("Not enough control points");
     expect(
       (
@@ -125,6 +127,29 @@ describe("Georeference Annotation import", () => {
         )
       ).isLeft(),
     ).toBe(true);
+  });
+
+  it("keeps usable maps in one layer when another map cannot be warped", async () => {
+    const first = georeferenceAnnotation();
+    const second = georeferenceAnnotation();
+    second.id = "https://example.com/annotations/incomplete";
+    second.body.features.pop();
+    const result = (
+      await Georeference.forwardString(
+        JSON.stringify({ type: "AnnotationPage", items: [first, second] }),
+        options({ points: true, layer: true, mask: true }),
+      )
+    ).unsafeCoerce();
+    expect(parseAnnotation(result.annotation).map((map) => map.id)).toEqual([
+      first.id,
+    ]);
+    expect(result.maps.map((map) => map.geojson.features.length)).toEqual([
+      4, 2,
+    ]);
+    expect(result.notes).toHaveLength(1);
+    expect(result.notes[0]).toContain(
+      "Map 2: Could not create the layer or mask.",
+    );
   });
 
   it("refines curved mask edges", async () => {

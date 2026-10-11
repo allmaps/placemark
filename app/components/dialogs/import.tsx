@@ -27,6 +27,7 @@ export function ImportDialog({
   const map = useContext(MapContext);
 
   const [index, setIndex] = useState<number>(0);
+  const [name, setName] = useState<string>();
   const [extent, setExtent] = useState<Maybe<BBox>>(Nothing);
 
   const file = files[index];
@@ -40,6 +41,7 @@ export function ImportDialog({
     }
     if (hasNext) {
       setExtent(nextExtent);
+      setName(undefined);
       setIndex((i) => i + 1);
     } else {
       nextExtent.map((importedExtent) => {
@@ -72,12 +74,17 @@ export function ImportDialog({
     <>
       <DialogHeader
         title={`Import ${truncate(
-          file.type === "file" ? file.file.name : "Shapefile",
+          name || (file.type === "file" ? file.file.name : "Shapefile"),
         )} ${progress}`}
         titleIcon={PlusCircledIcon}
       />
       {file.type === "file" ? (
-        <ImportFileGroup key={index} {...props} file={file} />
+        <ImportFileGroup
+          key={index}
+          {...props}
+          file={file}
+          onNameChange={setName}
+        />
       ) : (
         <ImportShapefile {...props} file={file} />
       )}

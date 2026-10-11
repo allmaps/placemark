@@ -67,7 +67,7 @@ export const CSV_KINDS = [
 ] as const;
 
 export const DEFAULT_IMPORT_OPTIONS: Omit<ImportOptions, "type"> = {
-  georeferenceOptions: { points: true, layer: false, mask: false },
+  georeferenceOptions: { points: false, layer: true, mask: false },
   coordinateStringOptions: {
     order: "LONLAT",
   },
@@ -247,7 +247,6 @@ export interface FileType {
 
 export const FILE_TYPES = [
   GeoJSON,
-  Georeference,
   KML,
   KMZ,
   TCX,
@@ -266,6 +265,7 @@ export const FILE_TYPES = [
   FlatGeobuf,
   CoordinateString,
   OSM,
+  Georeference,
 ] as const;
 
 function assertIsObject(obj: JsonValue): obj is JsonObject {

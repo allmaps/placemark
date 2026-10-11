@@ -20,7 +20,7 @@ import { lib } from "app/lib/worker";
 import type { FileWithHandle } from "browser-fs-access";
 import * as Comlink from "comlink";
 import { transfer } from "comlink";
-import { generateNKeysBetween } from "fractional-indexing";
+import { generateKeyBetween, generateNKeysBetween } from "fractional-indexing";
 import { useSetAtom } from "jotai";
 import { useAtomCallback } from "jotai/utils";
 import { useCallback } from "react";
@@ -84,17 +84,35 @@ export function resultToTransact({
 
   switch (result.type) {
     case "georeference": {
-      const moment: MomentInput = fMoment(`Imported ${file.name}`);
+      const name = result.name || file.name;
+      const moment: MomentInput = fMoment(`Imported ${name}`);
       const hasFeatures = result.maps.some(
         (map) => map.geojson.features.length,
       );
-      if (hasFeatures) moment.putFolders.push(...putFolders);
-      const layerAts = generateNKeysBetween(
-        null,
-        [...layerConfigs.values()].map((layer) => layer.at).sort()[0] ?? null,
-        result.maps.filter((map) => map.annotation).length,
-      );
-      let layerIndex = 0;
+      if (hasFeatures) {
+        moment.putFolders.push(
+          ...putFolders.map((folder) => ({ ...folder, name })),
+        );
+      }
+      if (result.annotation) {
+        moment.putLayerConfigs.push({
+          id: newFeatureId(),
+          at: generateKeyBetween(
+            null,
+            [...layerConfigs.values()].map((layer) => layer.at).sort()[0] ??
+              null,
+          ),
+          type: "ALLMAPS",
+          name,
+          annotation: result.annotation,
+          url: sourceUrl,
+          visibility: true,
+          labelVisibility: true,
+          tms: false,
+          opacity: 1,
+          saturation: 1,
+        });
+      }
       const folderAts = generateNKeysBetween(null, null, result.maps.length);
       for (const [mapIndex, map] of result.maps.entries()) {
         if (map.geojson.features.length) {
@@ -121,21 +139,6 @@ export function resultToTransact({
               feature,
             })),
           );
-        }
-        if (map.annotation) {
-          moment.putLayerConfigs.push({
-            id: newFeatureId(),
-            at: layerAts[layerIndex++],
-            type: "ALLMAPS",
-            name: `${file.name} — ${map.name}`,
-            annotation: map.annotation,
-            url: sourceUrl,
-            visibility: true,
-            labelVisibility: true,
-            tms: false,
-            opacity: 1,
-            saturation: 1,
-          });
         }
       }
       return { ...moment, track };

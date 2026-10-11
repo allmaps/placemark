@@ -31,3 +31,32 @@ export function georeferenceAnnotation() {
     },
   };
 }
+
+export function labelledGeoreferencePage() {
+  return {
+    type: "AnnotationPage",
+    items: ["North sheet", "South sheet"].map((label, index) => {
+      const annotation = georeferenceAnnotation();
+      return {
+        ...annotation,
+        id: `https://example.com/annotations/map-${index + 1}`,
+        target: {
+          ...annotation.target,
+          source: {
+            ...annotation.target.source,
+            partOf: [{
+              id: `https://example.com/canvases/${index + 1}`,
+              type: "Canvas",
+              label: { en: [label] },
+              partOf: [{
+                id: "https://example.com/manifest",
+                type: "Manifest",
+                label: { en: ["Historical atlas"] },
+              }],
+            }],
+          },
+        },
+      };
+    }),
+  };
+}

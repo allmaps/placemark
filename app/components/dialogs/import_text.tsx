@@ -11,6 +11,7 @@ import { MapContext } from "app/context/map_context";
 import { useImportString } from "app/hooks/use_import";
 import type { ImportOptions, Progress } from "app/lib/convert";
 import { DEFAULT_IMPORT_OPTIONS } from "app/lib/convert";
+import { truncate } from "app/lib/utils";
 import * as Comlink from "comlink";
 import type { FormikHelpers } from "formik";
 import { Form, Formik } from "formik";
@@ -36,6 +37,7 @@ export function ImportTextDialog({
   const doImport = useImportString();
   const map = useContext(MapContext);
   const [progress, setProgress] = useState<Progress | null>(null);
+  const [name, setName] = useState<string>();
 
   async function onSubmit(
     values: ImportOptionsWithText,
@@ -76,7 +78,10 @@ export function ImportTextDialog({
 
   return (
     <>
-      <DialogHeader title="Import text" titleIcon={ClipboardIcon} />
+      <DialogHeader
+        title={name ? `Import ${truncate(name)}` : "Import text"}
+        titleIcon={ClipboardIcon}
+      />
       <Formik
         onSubmit={onSubmit}
         initialValues={{
@@ -98,7 +103,10 @@ export function ImportTextDialog({
                     autoFocus
                   />
                   <SelectFileType textOnly />
-                  <GeoreferenceOptionsForm />
+                  <GeoreferenceOptionsForm
+                    file={values.text}
+                    onNameChange={setName}
+                  />
                   <CoordinateStringOptionsForm />
                   <CsvOptionsForm file={values.text} geocoder />
                 </div>

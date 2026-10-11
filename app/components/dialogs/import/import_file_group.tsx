@@ -56,12 +56,14 @@ export function ImportFileGroup({
   hasNext,
   onClose,
   secondary,
+  onNameChange,
   file: fileGroup,
 }: {
   onNext: OnNext;
   hasNext: boolean;
   onClose: () => void;
   secondary: SecondaryAction;
+  onNameChange: (name: string | undefined) => void;
   file: FileGroup;
 }) {
   const { file } = fileGroup;
@@ -113,7 +115,7 @@ export function ImportFileGroup({
         <div>
           <div className="space-y-4">
             <SelectFileType />
-            <GeoreferenceOptionsForm />
+            <GeoreferenceOptionsForm file={file} onNameChange={onNameChange} />
             <CoordinateStringOptionsForm />
             <CsvOptionsForm file={file} geocoder />
             <GeoJSONOptionsForm />
